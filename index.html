@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>miniWebRTC Video Chat</title>
+</head>
+
+<body>
+    <h3>Create or join a room?</h3>
+    <button id="createBtn">BOB: Create</button>
+    <button id="joinBtn">ALICE: Join</button>
+    <hr>
+
+    <h3 id="myModalLabel">BOB: Send your local offer to ALICE</h3>
+    <input id="localOffer" rows=10 cols=50>
+    <br>
+    <h3>Then, paste the "answer" you received</h3>
+    <input id="remoteAnswer" rows=10 cols=50>
+    <br>
+    <br>
+    <button id="answerRecdBtn">Okay, I pasted it.</button>
+    <hr>
+
+    <h3>ALICE: Paste the "offer" you received</h3>
+    <input id="remoteOffer" rows=10 cols=50>
+    <br>
+    <br>
+    <button id="offerRecdBtn">Okay, I pasted it.</button>
+    <h3>Then, send your local answer to BOB</h3>
+    <input id="localAnswer" rows=10 cols=50>
+    <hr>
+
+    <h3>Video Chat</h3>
+    <video id="localVideo" autoplay playsinline style="width: 45%; border: 1px solid black;"></video>
+    <video id="remoteVideo" autoplay playsinline style="width: 45%; border: 1px solid black;"></video>
+
+    <script>
+        let localStream, remoteStream;
+        let pc;
+
+        async function startVideoChat() {
+            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            document.getElementById("localVideo").srcObject = localStream;
+
+            pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+
+            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+            pc.ontrack = (event) => {
+                if (!remoteStream) {
+                    remoteStream = new MediaStream();
+                    document.getElementById("remoteVideo").srcObject = remoteStream;
+                }
+                remoteStream.addTrack(event.track);
+            };
+
+            pc.onicecandidate = (event) => {
+                if (!event.candidate) {
+                    document.getElementById("localOffer").value = JSON.stringify(pc.localDescription);
+                }
+            };
+        }
+
+        document.getElementById("createBtn").onclick = async () => {
+            await startVideoChat();
+            let offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+        };
+
+        document.getElementById("offerRecdBtn").onclick = async () => {
+            let offer = JSON.parse(document.getElementById("remoteOffer").value);
+            await startVideoChat();
+            await pc.setRemoteDescription(new RTCSessionDescription(offer));
+            let answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            document.getElementById("localAnswer").value = JSON.stringify(answer);
+        };
+
+        document.getElementById("answerRecdBtn").onclick = async () => {
+            let answer = JSON.parse(document.getElementById("remoteAnswer").value);
+            await pc.setRemoteDescription(new RTCSessionDescription(answer));
+        };
+    </script>
+</body>
+
+</html>
